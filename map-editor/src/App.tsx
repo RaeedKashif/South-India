@@ -37,6 +37,7 @@ export default function App() {
   const [hoveredId, setHoveredId] = useState<number | null>(null)
 
   const [mapStyle, setMapStyle] = useState<MapStyle>('political')
+  const [editCountries, setEditCountries] = useState(false)
   const [showSmoothOwnership, setShowSmoothOwnership] = useState(false)
   const [showProvinceBorders, setShowProvinceBorders] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('country')
@@ -52,6 +53,12 @@ export default function App() {
   const [paintTarget, setPaintTarget] = useState<PaintTarget>('country')
   const [brushCountry, setBrushCountry] = useState<CountryId | null>('PAK')
   const [brushTerrain, setBrushTerrain] = useState<TerrainType>('plain')
+  const [brushSize, setBrushSize] = useState(3)
+  // Resized country shapes (iso -> scaled vector MultiPolygon, lon/lat).
+  const [countryShapes, setCountryShapes] = useState<Map<string, number[][][][]>>(new Map())
+  const onCountryShape = useCallback((iso: string, shape: number[][][][]) => {
+    setCountryShapes((prev) => new Map(prev).set(iso, shape))
+  }, [])
 
   // ── Load: world meta + South Asia slice + saved edits + borders ────────────
   useEffect(() => {
@@ -288,7 +295,31 @@ export default function App() {
             <button className={`seg-btn ${tool === 'paint' ? 'active' : ''}`} onClick={() => setTool('paint')}>
               ✏ Paint
             </button>
+            <button
+              className={`seg-btn ${tool === 'transform' ? 'active' : ''}`}
+              onClick={() => {
+                setTool('transform')
+                setMapStyle('political')
+                setEditCountries(false)
+              }}
+            >
+              ⤢ Resize
+            </button>
           </div>
+          {tool === 'transform' && (
+            <>
+              <p className="hint">
+                <b>Click a country</b> to select it, then drag the corner handles to make it <b>bigger or
+                smaller</b> — its real smooth shape scales without distortion. Drag inside the box to move it.
+                Click another country to switch.
+              </p>
+              {countryShapes.size > 0 && (
+                <button className="btn-outline" onClick={() => setCountryShapes(new Map())}>
+                  Reset resized countries ({countryShapes.size})
+                </button>
+              )}
+            </>
+          )}
           {painting ? (
             <>
               <div className="seg" style={{ marginTop: 6 }}>
@@ -317,10 +348,21 @@ export default function App() {
                 </b>
                 . Hold <kbd>Space</kbd> to pan. Pick the brush below.
               </p>
+              <div className="field">
+                <label>Brush size · {brushSize === 1 ? '1 hex' : `${brushSize} hexes wide`}</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={8}
+                  value={brushSize}
+                  onChange={(e) => setBrushSize(Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+              </div>
             </>
-          ) : (
+          ) : tool === 'inspect' ? (
             <p className="hint">Click a hex to inspect &amp; edit. Switch to Paint to draw borders.</p>
-          )}
+          ) : null}
         </section>
 
         <section className="panel">
@@ -341,6 +383,30 @@ export default function App() {
               ? 'Smooth, accurate country shapes (vector). Hexes are the gameplay layer underneath.'
               : 'Raw hex grid coloured by the data below — the gameplay view.'}
           </p>
+          {mapStyle === 'political' && (
+            <>
+              <button
+                className={editCountries ? 'btn-primary' : 'btn-outline'}
+                style={{ marginTop: 6 }}
+                onClick={() => {
+                  const on = !editCountries
+                  setEditCountries(on)
+                  if (on) {
+                    setTool('paint')
+                    setPaintTarget('country')
+                  }
+                }}
+              >
+                {editCountries ? '● Editing borders — click to finish' : '✏ Edit borders'}
+              </button>
+              {editCountries && (
+                <p className="hint">
+                  Country shapes are now driven by the hexes. Pick a country below, then drag on the map to
+                  expand or shrink it — borders reshape live and autosave.
+                </p>
+              )}
+            </>
+          )}
         </section>
 
         {mapStyle === 'hex' && (
@@ -550,6 +616,7 @@ export default function App() {
           edits={edits}
           geojson={geojson}
           mapStyle={mapStyle}
+          editCountries={editCountries}
           showSmoothOwnership={showSmoothOwnership}
           showProvinceBorders={showProvinceBorders}
           selectedProvinceId={selectedProvinceId}
@@ -565,7 +632,10 @@ export default function App() {
           paintTarget={paintTarget}
           brushCountry={brushCountry}
           brushTerrain={brushTerrain}
+          brushSize={brushSize}
           onPaintCommit={onPaintCommit}
+          countryShapes={countryShapes}
+          onCountryShape={onCountryShape}
         />
         <div className="status-bar">
           {hoveredHex ? (

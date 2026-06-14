@@ -464,6 +464,8 @@ kbd {
 }
 .hud-btn:hover { border-color: #58a6ff; color: #58a6ff; }
 .hud-zoom { font-size: 11px; color: #8b949e; min-width: 36px; text-align: center; }
+.hud-sep { width: 1px; height: 18px; background: #30363d; }
+.hud-btn { white-space: nowrap; padding: 0 2px; min-width: 26px; width: auto; }
 
 .status-bar {
   position: absolute;
